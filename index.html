@@ -453,14 +453,8 @@ button.tile:hover { background: var(--tile-hover); }
     </div>
     <div class="session-info" id="sessionInfo" hidden><span id="sessionLevel"></span><span id="sessionPoints"></span></div>
     <!-- start screen: one button in the middle -->
-    <div id="introBox" style="display:none; min-height: 60vh; flex-direction: column; align-items: center; justify-content: center; gap: 22px">
+    <div id="introBox" style="display:none; min-height: 60vh; align-items: center; justify-content: center">
       <button class="btn primary" id="btnStartBig" type="button" style="font-size: 20px; padding: 14px 34px">Start session</button>
-      <div class="note" style="max-width: 46ch; text-align: center">
-        This game records how you play (which words you point at and click, and how long you take) to study how people solve puzzles. Nothing that identifies you is collected.
-        <label style="display:flex; gap:8px; align-items:center; justify-content:center; margin-top:8px; color: var(--ink); font-weight: 600">
-          <input type="checkbox" id="shareData" checked> Share my anonymous game data
-        </label>
-      </div>
     </div>
     <!-- after Start session: how to play, then Play starts the first puzzle -->
     <div id="howtoBox" style="display:none; min-height: 60vh; flex-direction: column; align-items: center; justify-content: center; gap: 18px">
@@ -638,8 +632,7 @@ button.tile:hover { background: var(--tile-hover); }
    The web app URL of the Google Apps Script collector (see github/SETUP.md).
    While it is empty, games are kept only in each player's browser. */
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbwpGgVHb00De-ms-wxNt1KSYlmfvOYbFdEkbbKLRt33MysrFWlL4nN7Zzs_ZvgzW3xz/exec";
-const SHARE_KEY = "connections3x3.share", ID_KEY = "connections3x3.player", OWNER_KEY = "connections3x3.owner";
-function shareOn() { try { return localStorage.getItem(SHARE_KEY) !== "no"; } catch (e) { return true; } }
+const ID_KEY = "connections3x3.player", OWNER_KEY = "connections3x3.owner";
 function playerId() {
   try {
     let id = localStorage.getItem(ID_KEY);
@@ -653,7 +646,7 @@ try {
   if (q === "1") localStorage.setItem(OWNER_KEY, "1"); else if (q === "0") localStorage.removeItem(OWNER_KEY);
 } catch (e) { /* ignore */ }
 function sendRemote(payload) {
-  if (!ENDPOINT || !shareOn()) return;
+  if (!ENDPOINT) return;
   try {
     // text/plain keeps this a "simple" request, which Apps Script accepts from any site
     const body = JSON.stringify(payload);
@@ -2564,10 +2557,6 @@ async function initCapabilities() {
   // GitHub version: a random id kept in this browser; ?owner=1 marks the owner's browser
   VIEWER.id = playerId();
   try { VIEWER.owner = localStorage.getItem(OWNER_KEY) === "1"; } catch (e) { VIEWER.owner = false; }
-  try {
-    const box = $("shareData"); box.checked = shareOn();
-    box.addEventListener("change", () => { try { localStorage.setItem(SHARE_KEY, box.checked ? "yes" : "no"); } catch (e) { /* this visit only */ } });
-  } catch (e) { /* no checkbox */ }
   const cl = window.claude;
   if (!cl || typeof cl.use !== "function") { pastGames = localGames(); renderPast(); return; }
   try {
