@@ -6,6 +6,9 @@
  * Deploy: Deploy > New deployment > Web app
  *   Execute as: Me    Who has access: Anyone
  * Copy the web app URL into ENDPOINT in index.html.
+ *
+ * Export: sim/pull_github.ps1 downloads the saved games. It sends the private
+ * key made by makeExportKey (kept in Script Properties, never in this code).
  */
 const FOLDER_NAME = 'Connections 3x3 games';
 const MAX_BYTES = 1000000;                 // ignore anything over ~1 MB
@@ -14,12 +17,20 @@ const HEADER = ['received', 'started', 'player', 'puzzle', 'categories', 'outcom
   'score', 'skill estimate', 'anchor first', 'file'];
 
 function doPost(e) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(20000);
+  let g;
   try {
     const raw = e && e.postData ? e.postData.contents : '';
     if (!raw || raw.length > MAX_BYTES) return reply_('ignored');
-    const g = JSON.parse(raw);
+    g = JSON.parse(raw);
+    if (g && g.export !== undefined) return exportGames_(g);
+  } catch (err) {
+    console.error(err);
+    return reply_('error: ' + (err && err.message ? err.message : err));
+  }
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const raw = e.postData.contents;
     const id = String(g.id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
     if (!id || !Array.isArray(g.cats) || !g.outcome) return reply_('ignored');
 
@@ -53,6 +64,33 @@ function doPost(e) {
   }
 }
 
+/* Export for sim/pull_github.ps1. {export: key} lists the saved games (name,
+   size, last change); {export: key, names: [...]} returns those files' contents.
+   A wrong or missing key gets "denied" and nothing else. */
+function exportGames_(g) {
+  const key = PropertiesService.getScriptProperties().getProperty('EXPORT_KEY');
+  if (!key || typeof g.export !== 'string' || g.export !== key) return reply_('denied');
+  const it = DriveApp.getFoldersByName(FOLDER_NAME);
+  if (!it.hasNext()) return json_({ files: [] });
+  const folder = it.next();
+  if (Array.isArray(g.names)) {
+    const out = {};
+    g.names.slice(0, 50).forEach((n) => {
+      const f = folder.getFilesByName(String(n));
+      if (f.hasNext()) out[n] = f.next().getBlob().getDataAsString('UTF-8');
+    });
+    return json_({ contents: out });
+  }
+  const files = [];
+  const all = folder.getFiles();
+  while (all.hasNext()) {
+    const f = all.next();
+    if (!/\.json$/.test(f.getName())) continue;
+    files.push({ name: f.getName(), size: f.getSize(), updated: f.getLastUpdated().toISOString() });
+  }
+  return json_({ files });
+}
+
 // Setup check: pick testPost in the editor's function menu and click Run. It saves one
 // test game the way the site does and prints "ok" or the reason it failed (delete the
 // test row and file afterwards). Running it also asks for any permission still missing.
@@ -60,6 +98,15 @@ function testPost() {
   const game = { id: 'gTESTeditor01', player: 'TEST-delete-me', puzzle: 0,
     cats: ['TEST ROW', 'DELETE ME', 'FROM THE EDITOR'], outcome: 'test', durationMs: 1000, mistakes: 0 };
   console.log(doPost({ postData: { contents: JSON.stringify(game) } }).getContent());
+}
+
+// Run once from the editor: makes the private export key, stores it in Script
+// Properties and prints it. The key goes in logs_github/export_key.txt on your computer,
+// outside the github folder so it never gets uploaded. Running it again replaces the key.
+function makeExportKey() {
+  const key = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  PropertiesService.getScriptProperties().setProperty('EXPORT_KEY', key);
+  console.log('Export key: ' + key);
 }
 
 // Visiting the URL in a browser shows this, which confirms the deployment works.
@@ -70,3 +117,8 @@ function folder_() {
   return it.hasNext() ? it.next() : DriveApp.createFolder(FOLDER_NAME);
 }
 function reply_(text) { return ContentService.createTextOutput(text); }
+function json_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
+
+// Run this once from the editor if Google never asked for Drive access (or it was unticked):
+// it shows the permission screen for everything the script needs.
+function authorize() { ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL); }
