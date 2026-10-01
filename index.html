@@ -4512,11 +4512,15 @@ function layoutGuide() {
 }
 document.fonts.ready.then(() => { if (!$("viewGuide").hidden) layoutGuide(); });
 /* Show the guide's notes one at a time, each with its bracket or arrow,
-   2 s apart in GUIDE_ORDER, every time the tab is opened */
+   2 s apart in GUIDE_ORDER, starting from a bare graph. Once a player has
+   watched it to the end, the notes stay up whenever they return */
 const GUIDE_STROKES = { gmbank: 1, gmpitcher: 2, gmcaption: 3, gmdist: 4, gmlink: 6, gminset: 7, gmboth: 8 };
 const GUIDE_STEP_MS = 2000;
 // the order the notes appear in; notes in one inner list appear together
 const GUIDE_ORDER = [[7], [1], [2], [8], [4, 6], [5], [3]];
+const GUIDE_SEEN_KEY = "connections3x3.guideSeen";
+let guideSeen = false;
+try { guideSeen = localStorage.getItem(GUIDE_SEEN_KEY) === "1"; } catch (e) { /* this visit only */ }
 let guideTimers = [];
 function revealGuide() {
   guideTimers.forEach(clearTimeout);
@@ -4530,12 +4534,22 @@ function revealGuide() {
   });
   svg.querySelectorAll("[data-for]").forEach((el) => add(+el.dataset.for, el));
   svg.querySelectorAll("text[data-note]").forEach((el) => add(+el.dataset.note, el));
+  const keys = [...parts.keys()].sort((a, b) => a - b);
+  if (guideSeen) {
+    keys.forEach((k) => parts.get(k).forEach((el) => el.classList.add("g-step", "on")));
+    $("gPitcher").classList.add("grow");
+    return;
+  }
   $("gPitcher").classList.remove("grow");
-  [...parts.keys()].sort((a, b) => a - b).forEach((k, i) => {
+  keys.forEach((k, i) => {
     parts.get(k).forEach((el) => { el.classList.add("g-step"); el.classList.remove("on"); });
     guideTimers.push(setTimeout(() => {
       parts.get(k).forEach((el) => el.classList.add("on"));
       if (GUIDE_ORDER[k].includes(2)) $("gPitcher").classList.add("grow");     // the word under the pointer starts growing with its note
+      if (i === keys.length - 1) {
+        guideSeen = true;
+        try { localStorage.setItem(GUIDE_SEEN_KEY, "1"); } catch (e) { /* this visit only */ }
+      }
     }, GUIDE_STEP_MS * (i + 1)));
   });
 }
