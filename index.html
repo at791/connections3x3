@@ -2565,7 +2565,9 @@ const SEQ = {
   STRUGGLE_ACTIVE: 45, STRUGGLE_CLICKS: 12, STRUGGLE_RELIEF_FAILED: 0.95,
   STRUGGLE_BUMP_SOLVED: 0.03, STRUGGLE_BUMP_HINTED: 0, STRUGGLE_BUMP_FAILED: 0.12, STRUGGLE_CAP: 0.97,
   GRID: Array.from({ length: 121 }, (_, i) => (i - 60) / 10),     // skill -6.0 .. +6.0
-  PRIOR_MEAN: 0, PRIOR_SD: 1.5, DRIFT_SD: 0.3,
+  // new players start at 1.0, not 0: in the GitHub sessions to 2026-10-14 all 5 new
+  // players solved the opener cleanly and settled at 0.8-1.4 (2026-10-27)
+  PRIOR_MEAN: 1.0, PRIOR_SD: 1.5, DRIFT_SD: 0.3,
   MIN_TIME: 13, REF_TIME: 28,     // s, from the solve-time distribution: full credit for the fastest quarter (<13 s); credit halves by the 90th percentile (41 s)
   RATING_SD: 3.0,   // the rating after puzzle 1 is weak evidence
   SKILL_KEY: "connections3x3.skill.v2",   // v2: fresh start after the timing/difficulty recalibration
